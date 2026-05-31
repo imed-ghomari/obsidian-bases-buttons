@@ -1,4 +1,4 @@
-import { App, Notice, normalizePath, Plugin, TFile } from "obsidian";
+import { App, Modal, Notice, normalizePath, Platform, Plugin, Setting, TFile } from "obsidian";
 import { BasesButtonsSettings, DEFAULT_SETTINGS, BasesButtonsSettingTab, ButtonConfig } from "./settings";
 
 interface TemplaterRuntime {
@@ -21,10 +21,16 @@ export default class BasesButtonsPlugin extends Plugin {
 	observer: MutationObserver;
 	private injectTimer: number | null = null;
 	private pendingInjectionRoots = new Set<HTMLElement | Document>();
+	private buttonTargets = new WeakMap<HTMLButtonElement, {
+		config: ButtonConfig;
+		row: HTMLElement;
+		lastActivation: number;
+	}>();
 
 	async onload() {
 		await this.loadSettings();
 		this.addSettingTab(new BasesButtonsSettingTab(this.app, this));
+		this.registerBaseInteractionGuards();
 
 		this.observer = new MutationObserver((mutations) => {
 			this.handleMutations(mutations);
@@ -51,6 +57,8 @@ export default class BasesButtonsPlugin extends Plugin {
 		if (!Array.isArray(this.settings.buttons)) {
 			this.settings.buttons = [];
 		}
+
+		this.settings.confirmMobileRuns = loaded.confirmMobileRuns ?? DEFAULT_SETTINGS.confirmMobileRuns;
 	}
 
 	async saveSettings() {
@@ -87,17 +95,7 @@ export default class BasesButtonsPlugin extends Plugin {
 			return;
 		}
 
-		const templaterPlugin = this.getTemplaterPlugin();
-		const templaterRuntime = templaterPlugin?.templater;
-		const writeTemplate = templaterRuntime?.write_template_to_file;
-		if (typeof writeTemplate !== "function") {
-			new Notice("Install and enable the Templater plugin to use Bases Buttons.");
-			return;
-		}
-
-		const templateFile = this.resolveTemplateFile(config.templatePath);
-		if (!(templateFile instanceof TFile)) {
-			new Notice(`Template file not found: ${config.templatePath || "(not set)"}`);
+		if (buttonEl.disabled) {
 			return;
 		}
 
@@ -105,6 +103,25 @@ export default class BasesButtonsPlugin extends Plugin {
 		buttonEl.addClass("is-loading");
 
 		try {
+			if (this.settings.confirmMobileRuns && Platform.isMobile) {
+				const confirmed = await new MobileRunConfirmationModal(this.app, this.getButtonLabel(config), targetFile.basename).waitForChoice();
+				if (!confirmed) return;
+			}
+
+			const templaterPlugin = this.getTemplaterPlugin();
+			const templaterRuntime = templaterPlugin?.templater;
+			const writeTemplate = templaterRuntime?.write_template_to_file;
+			if (typeof writeTemplate !== "function") {
+				new Notice("Install and enable the Templater plugin to use Bases Buttons.");
+				return;
+			}
+
+			const templateFile = this.resolveTemplateFile(config.templatePath);
+			if (!(templateFile instanceof TFile)) {
+				new Notice(`Template file not found: ${config.templatePath || "(not set)"}`);
+				return;
+			}
+
 			await writeTemplate.call(templaterRuntime, templateFile, targetFile);
 			new Notice(`Ran ${this.getButtonLabel(config)} on ${targetFile.basename}.`);
 		} catch (error) {
@@ -212,28 +229,7 @@ export default class BasesButtonsPlugin extends Plugin {
 	private injectIntoBaseCell(cell: HTMLElement, row: HTMLElement, config: ButtonConfig) {
 		const buttonEl = this.createButton(config);
 		buttonEl.classList.add("mod-base");
-		let lastActivation = 0;
-
-		const activate = (event: Event) => {
-			event.preventDefault();
-			event.stopImmediatePropagation();
-
-			const now = Date.now();
-			if (now - lastActivation < 500) return;
-			lastActivation = now;
-
-			void this.runButton(config, this.getFileFromBaseRow(row), buttonEl);
-		};
-
-		buttonEl.addEventListener("pointerup", activate, { capture: true });
-		buttonEl.addEventListener("click", activate);
-
-		buttonEl.addEventListener("keydown", (event) => {
-			if (event.key !== "Enter" && event.key !== " ") return;
-			activate(event);
-		});
-
-		this.guardBaseInteractions(cell, buttonEl);
+		this.buttonTargets.set(buttonEl, { config, row, lastActivation: 0 });
 		cell.appendChild(buttonEl);
 	}
 
@@ -242,23 +238,6 @@ export default class BasesButtonsPlugin extends Plugin {
 		const href = link?.getAttribute("data-href");
 		const file = href ? this.app.metadataCache.getFirstLinkpathDest(href, "") : null;
 		return file instanceof TFile ? file : null;
-	}
-
-	private guardBaseInteractions(cell: HTMLElement, buttonEl: HTMLButtonElement) {
-		const shouldGuard = (event: Event) => event.target instanceof HTMLElement && event.target.closest(".bases-buttons-plugin-button") === buttonEl;
-		const stopBaseInteraction = (event: Event) => {
-			if (!shouldGuard(event)) return;
-
-			event.preventDefault();
-			event.stopImmediatePropagation();
-		};
-
-		const events = ["pointerdown", "mousedown", "mouseup", "dblclick", "focusin"];
-		events.forEach(evt => {
-			cell.addEventListener(evt, stopBaseInteraction, { capture: true });
-			buttonEl.addEventListener(evt, stopBaseInteraction, { capture: true });
-			buttonEl.addEventListener(evt, stopBaseInteraction);
-		});
 	}
 
 	private createButton(config: ButtonConfig): HTMLButtonElement {
@@ -294,5 +273,141 @@ export default class BasesButtonsPlugin extends Plugin {
 
 	private getButtonLabel(config: ButtonConfig): string {
 		return config.label.trim() || config.name.replace(/^button\./, "") || "Run template";
+	}
+
+	private registerBaseInteractionGuards() {
+		const stopButtonSelection = (event: Event) => {
+			const button = this.getEventButton(event);
+			if (!button) return;
+
+			event.preventDefault();
+			event.stopImmediatePropagation();
+		};
+
+		const activateButton = (event: Event) => {
+			const button = this.getEventButton(event);
+			if (!button) return;
+
+			event.preventDefault();
+			event.stopImmediatePropagation();
+			this.activateButton(button);
+		};
+
+		this.registerDomEvent(window, "pointerdown", stopButtonSelection, { capture: true });
+		this.registerDomEvent(document, "pointerdown", stopButtonSelection, { capture: true });
+		this.registerDomEvent(window, "mousedown", stopButtonSelection, { capture: true });
+		this.registerDomEvent(document, "mousedown", stopButtonSelection, { capture: true });
+		this.registerDomEvent(window, "touchstart", stopButtonSelection, { capture: true });
+		this.registerDomEvent(document, "touchstart", stopButtonSelection, { capture: true });
+		this.registerDomEvent(window, "dblclick", stopButtonSelection, { capture: true });
+		this.registerDomEvent(document, "dblclick", stopButtonSelection, { capture: true });
+
+		this.registerDomEvent(window, "pointerup", activateButton, { capture: true });
+		this.registerDomEvent(document, "pointerup", activateButton, { capture: true });
+		this.registerDomEvent(window, "click", activateButton, { capture: true });
+		this.registerDomEvent(document, "click", activateButton, { capture: true });
+
+		this.registerDomEvent(window, "keydown", (event) => this.handleKeyboardActivation(event), { capture: true });
+		this.registerDomEvent(document, "keydown", (event) => this.handleKeyboardActivation(event), { capture: true });
+	}
+
+	private handleKeyboardActivation(event: KeyboardEvent) {
+		if (event.key !== "Enter") return;
+
+		const button = this.getEventButton(event) ?? this.getSelectedBaseButton(event);
+		if (!button) return;
+
+		event.preventDefault();
+		event.stopImmediatePropagation();
+		this.activateButton(button);
+	}
+
+	private getEventButton(event: Event): HTMLButtonElement | null {
+		const target = event.target;
+		if (!(target instanceof HTMLElement)) return null;
+
+		const button = target.closest<HTMLButtonElement>(".bases-buttons-plugin-button");
+		return button && this.buttonTargets.has(button) ? button : null;
+	}
+
+	private getSelectedBaseButton(event: Event): HTMLButtonElement | null {
+		const target = event.target instanceof HTMLElement ? event.target : document.activeElement;
+		const root = target?.closest<HTMLElement>(".bases-view") ?? document;
+		const targetCell = target?.closest<HTMLElement>(".bases-td");
+		const selectedCell = targetCell?.querySelector(".bases-buttons-plugin-button")
+			? targetCell
+			: root.querySelector<HTMLElement>([
+				".bases-td.is-selected",
+				".bases-td.mod-selected",
+				".bases-td.is-focused",
+				".bases-td.mod-focused",
+				".bases-td[aria-selected='true']",
+				".bases-td[aria-current='true']",
+				".bases-td[tabindex='0']"
+			].join(", "));
+
+		const button = selectedCell?.querySelector<HTMLButtonElement>(".bases-buttons-plugin-button") ?? null;
+		return button && this.buttonTargets.has(button) ? button : null;
+	}
+
+	private activateButton(button: HTMLButtonElement) {
+		const target = this.buttonTargets.get(button);
+		if (!target || button.disabled) return;
+
+		const now = Date.now();
+		if (now - target.lastActivation < 500) return;
+		target.lastActivation = now;
+
+		void this.runButton(target.config, this.getFileFromBaseRow(target.row), button);
+	}
+}
+
+class MobileRunConfirmationModal extends Modal {
+	private buttonLabel: string;
+	private fileName: string;
+	private resolveChoice: (confirmed: boolean) => void = () => undefined;
+	private settled = false;
+
+	constructor(app: App, buttonLabel: string, fileName: string) {
+		super(app);
+		this.buttonLabel = buttonLabel;
+		this.fileName = fileName;
+	}
+
+	waitForChoice(): Promise<boolean> {
+		return new Promise(resolve => {
+			this.resolveChoice = resolve;
+			this.open();
+		});
+	}
+
+	onOpen() {
+		this.titleEl.setText("Run button?");
+		this.contentEl.empty();
+		this.contentEl.createEl("p", {
+			text: `Run "${this.buttonLabel}" on "${this.fileName}"?`
+		});
+
+		new Setting(this.contentEl)
+			.addButton(button => button
+				.setButtonText("Cancel")
+				.onClick(() => this.choose(false))
+			)
+			.addButton(button => button
+				.setButtonText("Run")
+				.setCta()
+				.onClick(() => this.choose(true))
+			);
+	}
+
+	onClose() {
+		this.choose(false);
+	}
+
+	private choose(confirmed: boolean) {
+		if (this.settled) return;
+		this.settled = true;
+		this.resolveChoice(confirmed);
+		this.close();
 	}
 }

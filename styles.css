@@ -27,10 +27,11 @@
 	justify-content: center;
 	gap: var(--size-2-2);
 	padding: 0 var(--size-4-2);
+	font: inherit;
 	color: var(--text-normal);
-	background: var(--interactive-normal);
+	background-color: var(--interactive-normal);
 	border: 1px solid var(--background-modifier-border);
-	border-radius: var(--button-radius);
+	border-radius: var(--button-radius, var(--radius-s));
 	cursor: pointer;
 	white-space: nowrap;
 	overflow: hidden;
@@ -38,7 +39,20 @@
 }
 
 .bases-buttons-plugin-button:hover {
-	background: var(--interactive-hover);
+	color: var(--text-normal);
+	background-color: var(--interactive-hover);
+	border-color: var(--background-modifier-border-hover, var(--background-modifier-border));
+}
+
+.bases-buttons-plugin-button:focus-visible {
+	outline: 2px solid var(--background-modifier-border-focus, var(--interactive-accent));
+	outline-offset: 1px;
+}
+
+.bases-buttons-plugin-button:active {
+	color: var(--text-on-accent);
+	background-color: var(--interactive-accent-hover);
+	border-color: var(--interactive-accent);
 }
 
 .bases-buttons-plugin-button:disabled {

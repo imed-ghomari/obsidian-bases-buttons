@@ -9,10 +9,12 @@ export interface ButtonConfig {
 
 export interface BasesButtonsSettings {
 	buttons: ButtonConfig[];
+	confirmMobileRuns: boolean;
 }
 
 export const DEFAULT_SETTINGS: BasesButtonsSettings = {
-	buttons: []
+	buttons: [],
+	confirmMobileRuns: true
 };
 
 export class BasesButtonsSettingTab extends PluginSettingTab {
@@ -37,6 +39,17 @@ export class BasesButtonsSettingTab extends PluginSettingTab {
 			.setName("Buttons")
 			.setDesc(headingDesc)
 			.setHeading();
+
+		new Setting(containerEl)
+			.setName("Confirm on mobile")
+			.setDesc("Ask for confirmation before running a button on mobile devices.")
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.confirmMobileRuns)
+				.onChange(async (value) => {
+					this.plugin.settings.confirmMobileRuns = value;
+					await this.plugin.saveSettings();
+				})
+			);
 
 		this.plugin.settings.buttons.forEach((button, index) => {
 			const shortName = button.name.replace(/^button\./, "");

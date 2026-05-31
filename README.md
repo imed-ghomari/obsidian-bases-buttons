@@ -14,6 +14,8 @@ Each button runs a configured [Templater](https://github.com/SilentVoid13/Templa
 - **Global button configuration**: Define a button property, visible label, and Templater file path in one place.
 - **Template file suggestions**: Start typing a template path in settings and choose from matching Markdown files.
 - **Obsidian Bases support**: Injects buttons into matching Bases table cells only.
+- **Keyboard support**: Press Enter on a selected button cell to run the button.
+- **Mobile confirmation**: Optionally confirm before running buttons on mobile, enabled by default.
 - **Row-aware execution**: Buttons clicked from a Base target the note in that Base row, even when that note is not open.
 - **Templater integration**: Runs the configured Templater file through Templater's file-writing API so templates can update frontmatter or append content to the target note.
 
@@ -22,15 +24,16 @@ Each button runs a configured [Templater](https://github.com/SilentVoid13/Templa
 1. Install and enable the Templater community plugin.
 2. Enable this plugin in your Obsidian vault.
 3. Go to **Settings > Bases Buttons**.
-4. Click **Add button**.
-5. Enter a property name, for example `run`; the plugin will use `button.run`.
-6. Enter the button label to show in Properties and Bases.
-7. Start typing the Templater file path and select a template from the suggestions, for example `Templates/Archive task.md`.
-8. Add `button.run` as a property column in a Base.
+4. Keep **Confirm on mobile** enabled if you want a confirmation dialog before mobile button runs.
+5. Click **Add button**.
+6. Enter a property name, for example `run`; the plugin will use `button.run`.
+7. Enter the button label to show in Bases.
+8. Start typing the Templater file path and select a template from the suggestions, for example `Templates/Archive task.md`.
+9. Add `button.run` as a property column in a Base.
 
 The plugin does not render buttons in note frontmatter. It only renders buttons inside Bases tables.
 
-When clicked, the button runs the configured Templater file against the note for that Base row. In templates, prefer `tp.config.target_file` when you need the note that was clicked from a Base. The active file may be the Base itself or another open note.
+When clicked, tapped, or activated with Enter from a selected button cell, the button runs the configured Templater file against the note for that Base row. In templates, prefer `tp.config.target_file` when you need the note that was clicked from a Base. The active file may be the Base itself or another open note.
 
 Example Templater snippet:
 
