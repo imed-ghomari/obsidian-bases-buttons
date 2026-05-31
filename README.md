@@ -67,7 +67,11 @@ If you want to build the plugin from source:
 
 ## Compatibility
 
-This plugin manipulates the DOM of the Properties and Bases views, so it may require updates if the Obsidian core UI changes significantly in future versions.
+This plugin manipulates the DOM of Bases views, so it may require updates if the Obsidian core UI changes significantly in future versions.
+
+## Credits
+
+Created by Imed Ghomari. This plugin is based on the original Custom Selectors plugin by hodie.
 
 ## License
 

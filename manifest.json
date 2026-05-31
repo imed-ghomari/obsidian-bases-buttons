@@ -1,10 +1,10 @@
 {
 	"id": "bases-buttons",
 	"name": "Bases Buttons",
-	"version": "1.2.1",
+	"version": "1.2.2",
 	"minAppVersion": "1.8.0",
-	"description": "Adds configurable Templater-powered buttons to Properties and Bases.",
-	"author": "hodie",
-	"authorUrl": "https://github.com/hodie",
+	"description": "Adds configurable Templater-powered buttons to Bases.",
+	"author": "Imed Ghomari",
+	"authorUrl": "https://github.com/imed-ghomari",
 	"isDesktopOnly": false
 }
