@@ -71,7 +71,7 @@ This plugin manipulates the DOM of Bases views, so it may require updates if the
 
 ## Credits
 
-Created by Imed Ghomari. This plugin is based on the original Custom Selectors plugin by hodie.
+This plugin is based on the original Custom Selectors plugin by hodie.
 
 ## License
 
