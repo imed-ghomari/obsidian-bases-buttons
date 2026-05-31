@@ -16,6 +16,8 @@ interface AppWithPlugins extends App {
 	};
 }
 
+const MOBILE_CONFIRMATION_OPEN_DELAY_MS = 350;
+
 export default class BasesButtonsPlugin extends Plugin {
 	settings: BasesButtonsSettings;
 	observer: MutationObserver;
@@ -447,6 +449,7 @@ class MobileRunConfirmationModal extends Modal {
 	private buttonLabel: string;
 	private fileName: string;
 	private resolveChoice: (confirmed: boolean) => void = () => undefined;
+	private openTimer: number | null = null;
 	private settled = false;
 
 	constructor(app: App, buttonLabel: string, fileName: string) {
@@ -458,13 +461,19 @@ class MobileRunConfirmationModal extends Modal {
 	waitForChoice(): Promise<boolean> {
 		return new Promise(resolve => {
 			this.resolveChoice = resolve;
-			this.open();
+			this.openTimer = window.setTimeout(() => {
+				this.openTimer = null;
+				this.open();
+			}, MOBILE_CONFIRMATION_OPEN_DELAY_MS);
 		});
 	}
 
 	onOpen() {
 		this.titleEl.setText("Run button?");
 		this.contentEl.empty();
+		["pointerdown", "mousedown", "touchstart", "click"].forEach(eventName => {
+			this.containerEl.addEventListener(eventName, this.stopBackdropClose, { capture: true });
+		});
 		this.contentEl.createEl("p", {
 			text: `Run "${this.buttonLabel}" on "${this.fileName}"?`
 		});
@@ -482,8 +491,24 @@ class MobileRunConfirmationModal extends Modal {
 	}
 
 	onClose() {
+		if (this.openTimer !== null) {
+			window.clearTimeout(this.openTimer);
+			this.openTimer = null;
+		}
+
+		["pointerdown", "mousedown", "touchstart", "click"].forEach(eventName => {
+			this.containerEl.removeEventListener(eventName, this.stopBackdropClose, { capture: true });
+		});
 		this.choose(false);
 	}
+
+	private stopBackdropClose = (event: Event) => {
+		const target = event.target;
+		if (!(target instanceof Node) || this.modalEl.contains(target)) return;
+
+		event.preventDefault();
+		event.stopImmediatePropagation();
+	};
 
 	private choose(confirmed: boolean) {
 		if (this.settled) return;
