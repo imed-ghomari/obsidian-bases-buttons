@@ -19,7 +19,8 @@ interface AppWithPlugins extends App {
 export default class BasesButtonsPlugin extends Plugin {
 	settings: BasesButtonsSettings;
 	observer: MutationObserver;
-	private injectQueued = false;
+	private injectTimer: number | null = null;
+	private pendingInjectionRoots = new Set<HTMLElement | Document>();
 
 	async onload() {
 		await this.loadSettings();
@@ -30,12 +31,16 @@ export default class BasesButtonsPlugin extends Plugin {
 		});
 
 		this.app.workspace.onLayoutReady(() => {
-			this.observer.observe(document.body, { childList: true, subtree: true });
+			this.startObserver();
 			this.injectButtons(document.body);
 		});
 	}
 
 	onunload() {
+		if (this.injectTimer !== null) {
+			window.clearTimeout(this.injectTimer);
+			this.injectTimer = null;
+		}
 		this.observer?.disconnect();
 	}
 
@@ -133,7 +138,7 @@ export default class BasesButtonsPlugin extends Plugin {
 	}
 
 	private injectButtons(container: HTMLElement | Document) {
-		const propertyContainers = container.querySelectorAll(".metadata-property");
+		const propertyContainers = this.queryWithSelf<HTMLElement>(container, ".metadata-property");
 		propertyContainers.forEach((propEl) => {
 			const keyEl = propEl.querySelector(".metadata-property-key-input") as HTMLInputElement;
 			if (!keyEl) return;
@@ -160,7 +165,7 @@ export default class BasesButtonsPlugin extends Plugin {
 			if (!buttonConfig.name) return;
 
 			const dataProperty = `note.${buttonConfig.name}`;
-			const cells = container.querySelectorAll(`.bases-td[data-property="${dataProperty}"]`);
+			const cells = this.queryWithSelf<HTMLElement>(container, `.bases-td[data-property="${dataProperty}"]`);
 
 			cells.forEach(cellEl => {
 				const cell = cellEl as HTMLElement;
@@ -179,23 +184,56 @@ export default class BasesButtonsPlugin extends Plugin {
 	}
 
 	private handleMutations(mutations: MutationRecord[]) {
-		const shouldInject = mutations.some(mutation => {
-			if (mutation.type !== "childList" || mutation.addedNodes.length === 0) return false;
-			if (mutation.target instanceof HTMLElement && mutation.target.closest(".bases-buttons-plugin-button")) return false;
-			return Array.from(mutation.addedNodes).some(node => !this.isOwnButtonNode(node));
-		});
+		for (const mutation of mutations) {
+			if (mutation.type !== "childList" || mutation.addedNodes.length === 0) continue;
+			if (mutation.target instanceof HTMLElement && mutation.target.closest(".bases-buttons-plugin-button")) continue;
 
-		if (shouldInject) this.queueInject();
+			Array.from(mutation.addedNodes).forEach(node => {
+				const root = this.getInjectionRoot(node);
+				if (root) this.queueInject(root);
+			});
+		}
 	}
 
-	private queueInject() {
-		if (this.injectQueued) return;
+	private startObserver() {
+		this.observer.observe(document.body, { childList: true, subtree: true });
+	}
 
-		this.injectQueued = true;
-		window.requestAnimationFrame(() => {
-			this.injectQueued = false;
-			this.injectButtons(document.body);
+	private queueInject(root: HTMLElement | Document) {
+		this.pendingInjectionRoots.add(root);
+		if (this.injectTimer !== null) return;
+
+		this.injectTimer = window.setTimeout(() => {
+			this.injectTimer = null;
+			const roots = Array.from(this.pendingInjectionRoots);
+			this.pendingInjectionRoots.clear();
+			this.injectWithoutObserving(roots);
+		}, 50);
+	}
+
+	private injectWithoutObserving(roots: Array<HTMLElement | Document>) {
+		this.observer.disconnect();
+		roots.forEach(root => {
+			if (root instanceof Document || root.isConnected) {
+				this.injectButtons(root);
+			}
 		});
+		this.startObserver();
+	}
+
+	private getInjectionRoot(node: Node): HTMLElement | null {
+		if (this.isOwnButtonNode(node)) return null;
+
+		const el = node instanceof HTMLElement ? node : node.parentElement;
+		if (!el) return null;
+
+		const parentRoot = el.closest<HTMLElement>(".metadata-property, .bases-td, .bases-view");
+		if (parentRoot) return parentRoot;
+
+		if (el.matches(".metadata-property, .bases-td, .bases-view")) return el;
+		if (el.querySelector(".metadata-property, .bases-td, .bases-view")) return el;
+
+		return null;
 	}
 
 	private isOwnButtonNode(node: Node): boolean {
@@ -204,6 +242,14 @@ export default class BasesButtonsPlugin extends Plugin {
 		}
 
 		return node.parentElement?.closest(".bases-buttons-plugin-button") !== null;
+	}
+
+	private queryWithSelf<T extends Element>(container: HTMLElement | Document, selector: string): T[] {
+		const matches = Array.from(container.querySelectorAll<T>(selector));
+		if (container instanceof HTMLElement && container.matches(selector)) {
+			matches.unshift(container as unknown as T);
+		}
+		return matches;
 	}
 
 	private replaceWithButton(valueContainer: HTMLElement, config: ButtonConfig) {

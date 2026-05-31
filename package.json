@@ -1,7 +1,7 @@
 {
 	"name": "obsidian-bases-buttons",
-	"version": "1.0.1",
-	"description": "Adds configurable Templater-powered buttons to Obsidian Properties and Bases.",
+	"version": "1.0.2",
+	"description": "Adds configurable Templater-powered buttons to Properties and Bases.",
 	"main": "main.js",
 	"type": "module",
 	"scripts": {
@@ -28,9 +28,7 @@
 		"jiti": "2.6.1",
 		"tslib": "2.4.0",
 		"typescript": "^5.8.3",
-		"typescript-eslint": "8.35.1"
-	},
-	"dependencies": {
-		"obsidian": "latest"
+		"typescript-eslint": "8.35.1",
+		"obsidian": "1.13.0"
 	}
 }

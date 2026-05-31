@@ -1,9 +1,9 @@
 {
 	"id": "bases-buttons",
 	"name": "Bases Buttons",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"minAppVersion": "1.8.0",
-	"description": "Adds configurable Templater-powered buttons to Obsidian Properties and Bases.",
+	"description": "Adds configurable Templater-powered buttons to Properties and Bases.",
 	"author": "hodie",
 	"authorUrl": "https://github.com/hodie",
 	"isDesktopOnly": false

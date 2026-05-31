@@ -1,5 +1,5 @@
 .bb-hidden {
-	display: none !important;
+	display: none;
 }
 
 .bb-setting-group {
@@ -7,7 +7,7 @@
 }
 
 .bb-setting-group .setting-item {
-	margin-bottom: 0 !important;
+	margin-bottom: 0;
 	border-bottom: 1px solid var(--background-modifier-border);
 }
 
@@ -16,13 +16,13 @@
 }
 
 .bb-setting-group .setting-item:not(:first-child) {
-	border-top-left-radius: 0 !important;
-	border-top-right-radius: 0 !important;
+	border-top-left-radius: 0;
+	border-top-right-radius: 0;
 }
 
 .bb-setting-group .setting-item:not(:last-child) {
-	border-bottom-left-radius: 0 !important;
-	border-bottom-right-radius: 0 !important;
+	border-bottom-left-radius: 0;
+	border-bottom-right-radius: 0;
 }
 
 .bases-buttons-plugin-button {
