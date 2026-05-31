@@ -19,6 +19,7 @@ interface AppWithPlugins extends App {
 export default class BasesButtonsPlugin extends Plugin {
 	settings: BasesButtonsSettings;
 	observer: MutationObserver;
+	private injectQueued = false;
 
 	async onload() {
 		await this.loadSettings();
@@ -178,16 +179,31 @@ export default class BasesButtonsPlugin extends Plugin {
 	}
 
 	private handleMutations(mutations: MutationRecord[]) {
-		let shouldInject = false;
-		for (const mutation of mutations) {
-			if (mutation.type === "childList" && mutation.addedNodes.length > 0) {
-				shouldInject = true;
-				break;
-			}
-		}
-		if (shouldInject) {
+		const shouldInject = mutations.some(mutation => {
+			if (mutation.type !== "childList" || mutation.addedNodes.length === 0) return false;
+			if (mutation.target instanceof HTMLElement && mutation.target.closest(".bases-buttons-plugin-button")) return false;
+			return Array.from(mutation.addedNodes).some(node => !this.isOwnButtonNode(node));
+		});
+
+		if (shouldInject) this.queueInject();
+	}
+
+	private queueInject() {
+		if (this.injectQueued) return;
+
+		this.injectQueued = true;
+		window.requestAnimationFrame(() => {
+			this.injectQueued = false;
 			this.injectButtons(document.body);
+		});
+	}
+
+	private isOwnButtonNode(node: Node): boolean {
+		if (node instanceof HTMLElement) {
+			return node.matches(".bases-buttons-plugin-button") || node.closest(".bases-buttons-plugin-button") !== null;
 		}
+
+		return node.parentElement?.closest(".bases-buttons-plugin-button") !== null;
 	}
 
 	private replaceWithButton(valueContainer: HTMLElement, config: ButtonConfig) {
@@ -213,9 +229,6 @@ export default class BasesButtonsPlugin extends Plugin {
 	}
 
 	private injectIntoBaseCell(cell: HTMLElement, row: HTMLElement, config: ButtonConfig) {
-		const link = row.querySelector<HTMLElement>(".internal-link[data-href]");
-		const href = link?.getAttribute("data-href");
-
 		const buttonEl = this.createButton(config);
 		buttonEl.classList.add("mod-base");
 
@@ -223,6 +236,8 @@ export default class BasesButtonsPlugin extends Plugin {
 			event.preventDefault();
 			event.stopPropagation();
 
+			const link = row.querySelector<HTMLElement>(".internal-link[data-href]");
+			const href = link?.getAttribute("data-href");
 			const file = href ? this.app.metadataCache.getFirstLinkpathDest(href, "") : null;
 			void this.runButton(config, file instanceof TFile ? file : null, buttonEl);
 		});
@@ -243,15 +258,31 @@ export default class BasesButtonsPlugin extends Plugin {
 		const buttonEl = document.createElement("button");
 		buttonEl.type = "button";
 		buttonEl.classList.add("bases-buttons-plugin-button", "clickable-icon");
-		buttonEl.setAttribute("aria-label", `${this.getButtonLabel(config)} using ${config.templatePath || "no template set"}`);
 		this.updateButton(buttonEl, config);
 		return buttonEl;
 	}
 
 	private updateButton(buttonEl: HTMLButtonElement, config: ButtonConfig) {
-		buttonEl.textContent = this.getButtonLabel(config);
-		buttonEl.dataset.templatePath = config.templatePath;
-		buttonEl.setAttribute("title", config.templatePath ? `Run ${config.templatePath}` : "No Templater file set");
+		const label = this.getButtonLabel(config);
+		const title = config.templatePath ? `Run ${config.templatePath}` : "No Templater file set";
+		const ariaLabel = `${label} using ${config.templatePath || "no template set"}`;
+
+		if (buttonEl.dataset.label !== label) {
+			buttonEl.textContent = label;
+			buttonEl.dataset.label = label;
+		}
+
+		if (buttonEl.dataset.templatePath !== config.templatePath) {
+			buttonEl.dataset.templatePath = config.templatePath;
+		}
+
+		if (buttonEl.getAttribute("title") !== title) {
+			buttonEl.setAttribute("title", title);
+		}
+
+		if (buttonEl.getAttribute("aria-label") !== ariaLabel) {
+			buttonEl.setAttribute("aria-label", ariaLabel);
+		}
 	}
 
 	private getButtonLabel(config: ButtonConfig): string {
