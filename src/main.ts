@@ -230,6 +230,7 @@ export default class BasesButtonsPlugin extends Plugin {
 		const buttonEl = this.createButton(config);
 		buttonEl.classList.add("mod-base");
 		this.buttonTargets.set(buttonEl, { config, row, lastActivation: 0 });
+		this.guardBaseCellInteractions(cell, buttonEl);
 		cell.appendChild(buttonEl);
 	}
 
@@ -250,8 +251,6 @@ export default class BasesButtonsPlugin extends Plugin {
 
 	private updateButton(buttonEl: HTMLButtonElement, config: ButtonConfig) {
 		const label = this.getButtonLabel(config);
-		const title = config.templatePath ? `Run ${config.templatePath}` : "No Templater file set";
-		const ariaLabel = `${label} using ${config.templatePath || "no template set"}`;
 
 		if (buttonEl.dataset.label !== label) {
 			buttonEl.textContent = label;
@@ -262,17 +261,60 @@ export default class BasesButtonsPlugin extends Plugin {
 			buttonEl.dataset.templatePath = config.templatePath;
 		}
 
-		if (buttonEl.getAttribute("title") !== title) {
-			buttonEl.setAttribute("title", title);
+		if (buttonEl.hasAttribute("title")) {
+			buttonEl.removeAttribute("title");
 		}
 
-		if (buttonEl.getAttribute("aria-label") !== ariaLabel) {
-			buttonEl.setAttribute("aria-label", ariaLabel);
+		if (buttonEl.hasAttribute("aria-label")) {
+			buttonEl.removeAttribute("aria-label");
 		}
 	}
 
 	private getButtonLabel(config: ButtonConfig): string {
 		return config.label.trim() || config.name.replace(/^button\./, "") || "Run template";
+	}
+
+	private guardBaseCellInteractions(cell: HTMLElement, buttonEl: HTMLButtonElement) {
+		const stopButtonSelection = (event: Event) => {
+			const button = this.getEventButton(event);
+			if (button !== buttonEl) return;
+
+			event.preventDefault();
+			event.stopImmediatePropagation();
+		};
+
+		const activateButton = (event: Event) => {
+			const button = this.getEventButton(event);
+			if (button !== buttonEl) return;
+
+			event.preventDefault();
+			event.stopImmediatePropagation();
+			this.activateButton(button);
+		};
+
+		["pointerdown", "mousedown", "touchstart", "dblclick", "focusin"].forEach(evt => {
+			cell.addEventListener(evt, stopButtonSelection, { capture: true });
+			buttonEl.addEventListener(evt, stopButtonSelection, { capture: true });
+			buttonEl.addEventListener(evt, stopButtonSelection);
+		});
+
+		["pointerup", "click"].forEach(evt => {
+			cell.addEventListener(evt, activateButton, { capture: true });
+			buttonEl.addEventListener(evt, activateButton, { capture: true });
+			buttonEl.addEventListener(evt, activateButton);
+		});
+
+		const activateWithEnter = (event: KeyboardEvent) => {
+			if (event.key !== "Enter") return;
+
+			event.preventDefault();
+			event.stopImmediatePropagation();
+			this.activateButton(buttonEl);
+		};
+
+		cell.addEventListener("keydown", activateWithEnter, { capture: true });
+		buttonEl.addEventListener("keydown", activateWithEnter, { capture: true });
+		buttonEl.addEventListener("keydown", activateWithEnter);
 	}
 
 	private registerBaseInteractionGuards() {
@@ -336,18 +378,57 @@ export default class BasesButtonsPlugin extends Plugin {
 		const targetCell = target?.closest<HTMLElement>(".bases-td");
 		const selectedCell = targetCell?.querySelector(".bases-buttons-plugin-button")
 			? targetCell
-			: root.querySelector<HTMLElement>([
-				".bases-td.is-selected",
-				".bases-td.mod-selected",
-				".bases-td.is-focused",
-				".bases-td.mod-focused",
-				".bases-td[aria-selected='true']",
-				".bases-td[aria-current='true']",
-				".bases-td[tabindex='0']"
-			].join(", "));
+			: this.findSelectedButtonCell(root);
 
 		const button = selectedCell?.querySelector<HTMLButtonElement>(".bases-buttons-plugin-button") ?? null;
 		return button && this.buttonTargets.has(button) ? button : null;
+	}
+
+	private findSelectedButtonCell(root: ParentNode): HTMLElement | null {
+		const selectionSelectors = [
+				".bases-td.is-selected",
+				".bases-td.mod-selected",
+				".bases-td.is-active",
+				".bases-td.mod-active",
+				".bases-td.is-focused",
+				".bases-td.mod-focused",
+				".bases-td.is-highlighted",
+				".bases-td.mod-highlighted",
+				".bases-td.has-focus",
+				".bases-td.has-active",
+				".bases-td[aria-selected='true']",
+				".bases-td[aria-current='true']",
+				".bases-td[data-selected='true']",
+				".bases-td[data-active='true']",
+				".bases-td[data-focused='true']",
+				".bases-td[tabindex='0']",
+				".bases-tr.is-selected .bases-td",
+				".bases-tr.mod-selected .bases-td",
+				".bases-tr.is-active .bases-td",
+				".bases-tr.mod-active .bases-td"
+		];
+
+		const buttonCells = Array.from(root.querySelectorAll<HTMLElement>(".bases-td"))
+			.filter(cell => cell.querySelector(".bases-buttons-plugin-button"));
+		for (const selector of selectionSelectors) {
+			const cell = buttonCells.find(buttonCell => buttonCell.matches(selector) || buttonCell.closest(selector));
+			if (cell) return cell;
+		}
+
+		return buttonCells.find(cell => this.hasSelectedState(cell)) ?? null;
+	}
+
+	private hasSelectedState(cell: HTMLElement): boolean {
+		const selectedPattern = /(selected|active|focused|current|highlight|focus)/i;
+		if (selectedPattern.test(cell.className)) return true;
+
+		const row = cell.closest<HTMLElement>(".bases-tr");
+		if (row && selectedPattern.test(row.className)) return true;
+
+		return ["aria-selected", "aria-current", "data-selected", "data-active", "data-focused"].some(attr => {
+			const value = cell.getAttribute(attr) ?? row?.getAttribute(attr);
+			return value === "true";
+		});
 	}
 
 	private activateButton(button: HTMLButtonElement) {
