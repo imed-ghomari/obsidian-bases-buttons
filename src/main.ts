@@ -1,4 +1,4 @@
-import { App, Notice, normalizePath, Plugin, TFile, WorkspaceLeaf } from "obsidian";
+import { App, Notice, normalizePath, Plugin, TFile } from "obsidian";
 import { BasesButtonsSettings, DEFAULT_SETTINGS, BasesButtonsSettingTab, ButtonConfig } from "./settings";
 
 interface TemplaterRuntime {
@@ -55,26 +55,6 @@ export default class BasesButtonsPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-	}
-
-	/**
-	 * Resolve the file associated with a DOM element by finding its parent
-	 * workspace leaf. Falls back to getActiveFile() if the leaf can't be found.
-	 */
-	private getFileFromElement(el: HTMLElement): TFile | null {
-		const leafEl = el.closest(".workspace-leaf");
-		if (!leafEl) return this.app.workspace.getActiveFile();
-
-		let targetFile: TFile | null = null;
-		this.app.workspace.iterateAllLeaves((leaf: WorkspaceLeaf) => {
-			if (leaf.view.containerEl.parentElement === leafEl) {
-				const view = leaf.view;
-				if ("file" in view && view.file instanceof TFile) {
-					targetFile = view.file;
-				}
-			}
-		});
-		return targetFile ?? this.app.workspace.getActiveFile();
 	}
 
 	private getTemplaterPlugin(): TemplaterPluginApi | null {
@@ -138,29 +118,6 @@ export default class BasesButtonsPlugin extends Plugin {
 	}
 
 	private injectButtons(container: HTMLElement | Document) {
-		const propertyContainers = this.queryWithSelf<HTMLElement>(container, ".metadata-property");
-		propertyContainers.forEach((propEl) => {
-			const keyEl = propEl.querySelector(".metadata-property-key-input") as HTMLInputElement;
-			if (!keyEl) return;
-
-			const key = keyEl.value || keyEl.textContent;
-			if (!key) return;
-
-			const buttonConfig = this.settings.buttons.find(button => button.name && button.name === key);
-			if (!buttonConfig) return;
-
-			const valueContainer = propEl.querySelector(".metadata-property-value");
-			if (!valueContainer) return;
-
-			const existingButton = valueContainer.querySelector<HTMLButtonElement>(".bases-buttons-plugin-button");
-			if (existingButton) {
-				this.updateButton(existingButton, buttonConfig);
-				return;
-			}
-
-			this.replaceWithButton(valueContainer as HTMLElement, buttonConfig);
-		});
-
 		this.settings.buttons.forEach(buttonConfig => {
 			if (!buttonConfig.name) return;
 
@@ -227,11 +184,11 @@ export default class BasesButtonsPlugin extends Plugin {
 		const el = node instanceof HTMLElement ? node : node.parentElement;
 		if (!el) return null;
 
-		const parentRoot = el.closest<HTMLElement>(".metadata-property, .bases-td, .bases-view");
+		const parentRoot = el.closest<HTMLElement>(".bases-td, .bases-view");
 		if (parentRoot) return parentRoot;
 
-		if (el.matches(".metadata-property, .bases-td, .bases-view")) return el;
-		if (el.querySelector(".metadata-property, .bases-td, .bases-view")) return el;
+		if (el.matches(".bases-td, .bases-view")) return el;
+		if (el.querySelector(".bases-td, .bases-view")) return el;
 
 		return null;
 	}
@@ -252,52 +209,56 @@ export default class BasesButtonsPlugin extends Plugin {
 		return matches;
 	}
 
-	private replaceWithButton(valueContainer: HTMLElement, config: ButtonConfig) {
-		const children = Array.from(valueContainer.children);
-
-		children.forEach((child: Element) => {
-			if (child.classList.contains("bases-buttons-plugin-button")) return;
-
-			if (child instanceof HTMLElement) {
-				child.addClass("bb-hidden");
-			}
-		});
-
-		const buttonEl = this.createButton(config);
-		buttonEl.addEventListener("click", (event) => {
-			event.preventDefault();
-			event.stopPropagation();
-			const file = this.getFileFromElement(valueContainer);
-			void this.runButton(config, file, buttonEl);
-		});
-
-		valueContainer.appendChild(buttonEl);
-	}
-
 	private injectIntoBaseCell(cell: HTMLElement, row: HTMLElement, config: ButtonConfig) {
 		const buttonEl = this.createButton(config);
 		buttonEl.classList.add("mod-base");
+		let lastActivation = 0;
 
-		buttonEl.addEventListener("click", (event) => {
+		const activate = (event: Event) => {
 			event.preventDefault();
-			event.stopPropagation();
+			event.stopImmediatePropagation();
 
-			const link = row.querySelector<HTMLElement>(".internal-link[data-href]");
-			const href = link?.getAttribute("data-href");
-			const file = href ? this.app.metadataCache.getFirstLinkpathDest(href, "") : null;
-			void this.runButton(config, file instanceof TFile ? file : null, buttonEl);
-		});
+			const now = Date.now();
+			if (now - lastActivation < 500) return;
+			lastActivation = now;
 
-		const stopInteraction = (e: Event) => {
-			e.stopPropagation();
+			void this.runButton(config, this.getFileFromBaseRow(row), buttonEl);
 		};
-		const evts = ["mousedown", "mouseup", "click", "pointerdown", "pointerup", "focusin"];
-		evts.forEach(evt => {
-			buttonEl.addEventListener(evt, stopInteraction);
-			buttonEl.addEventListener(evt, stopInteraction, { capture: true });
+
+		buttonEl.addEventListener("pointerup", activate, { capture: true });
+		buttonEl.addEventListener("click", activate);
+
+		buttonEl.addEventListener("keydown", (event) => {
+			if (event.key !== "Enter" && event.key !== " ") return;
+			activate(event);
 		});
 
+		this.guardBaseInteractions(cell, buttonEl);
 		cell.appendChild(buttonEl);
+	}
+
+	private getFileFromBaseRow(row: HTMLElement): TFile | null {
+		const link = row.querySelector<HTMLElement>(".internal-link[data-href]");
+		const href = link?.getAttribute("data-href");
+		const file = href ? this.app.metadataCache.getFirstLinkpathDest(href, "") : null;
+		return file instanceof TFile ? file : null;
+	}
+
+	private guardBaseInteractions(cell: HTMLElement, buttonEl: HTMLButtonElement) {
+		const shouldGuard = (event: Event) => event.target instanceof HTMLElement && event.target.closest(".bases-buttons-plugin-button") === buttonEl;
+		const stopBaseInteraction = (event: Event) => {
+			if (!shouldGuard(event)) return;
+
+			event.preventDefault();
+			event.stopImmediatePropagation();
+		};
+
+		const events = ["pointerdown", "mousedown", "mouseup", "dblclick", "focusin"];
+		events.forEach(evt => {
+			cell.addEventListener(evt, stopBaseInteraction, { capture: true });
+			buttonEl.addEventListener(evt, stopBaseInteraction, { capture: true });
+			buttonEl.addEventListener(evt, stopBaseInteraction);
+		});
 	}
 
 	private createButton(config: ButtonConfig): HTMLButtonElement {

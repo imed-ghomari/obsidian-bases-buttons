@@ -1,6 +1,6 @@
 # Obsidian Bases Buttons Plugin
 
-This is a plugin for [Obsidian](https://obsidian.md) that lets you define button properties, such as `button.run`, which render as clickable buttons in note Properties and core Bases tables.
+This is a plugin for [Obsidian](https://obsidian.md) that lets you define button properties, such as `button.run`, which render as clickable buttons in core Bases tables.
 
 Each button runs a configured [Templater](https://github.com/SilentVoid13/Templater) template against the note represented by the property or Base row.
 
@@ -12,8 +12,8 @@ Each button runs a configured [Templater](https://github.com/SilentVoid13/Templa
 ## Features
 
 - **Global button configuration**: Define a button property, visible label, and Templater file path in one place.
-- **Properties view support**: Replaces matched property values with a button in the note Properties view.
-- **Obsidian Bases support**: Injects buttons into matching Bases table cells.
+- **Template file suggestions**: Start typing a template path in settings and choose from matching Markdown files.
+- **Obsidian Bases support**: Injects buttons into matching Bases table cells only.
 - **Row-aware execution**: Buttons clicked from a Base target the note in that Base row, even when that note is not open.
 - **Templater integration**: Runs the configured Templater file through Templater's file-writing API so templates can update frontmatter or append content to the target note.
 
@@ -25,10 +25,12 @@ Each button runs a configured [Templater](https://github.com/SilentVoid13/Templa
 4. Click **Add button**.
 5. Enter a property name, for example `run`; the plugin will use `button.run`.
 6. Enter the button label to show in Properties and Bases.
-7. Enter the vault path to the Templater file to run, for example `Templates/Archive task.md`.
-8. Add the matching property to note frontmatter or add `button.run` as a property column in a Base.
+7. Start typing the Templater file path and select a template from the suggestions, for example `Templates/Archive task.md`.
+8. Add `button.run` as a property column in a Base.
 
-When clicked, the button runs the configured Templater file against the target note. In templates, prefer `tp.config.target_file` when you need the note that was clicked from a Base. The active file may be the Base itself or another open note.
+The plugin does not render buttons in note frontmatter. It only renders buttons inside Bases tables.
+
+When clicked, the button runs the configured Templater file against the note for that Base row. In templates, prefer `tp.config.target_file` when you need the note that was clicked from a Base. The active file may be the Base itself or another open note.
 
 Example Templater snippet:
 

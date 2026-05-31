@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting } from "obsidian";
+import { AbstractInputSuggest, App, PluginSettingTab, Setting, TFile } from "obsidian";
 import BasesButtonsPlugin from "./main";
 
 export interface ButtonConfig {
@@ -29,7 +29,7 @@ export class BasesButtonsSettingTab extends PluginSettingTab {
 
 		const headingDesc = document.createDocumentFragment();
 		headingDesc.append(
-			"Define properties that display as buttons in the Properties view and Bases tables. Each button runs a Templater template against the note represented by that property or Base row. To use a button in a Base, add ",
+			"Define properties that display as buttons in Bases tables. Each button runs a Templater template against the note represented by that Base row. To use a button, add ",
 			headingDesc.createEl("code", { text: "button.<name>" }),
 			" as a property column in your Base view."
 		);
@@ -57,7 +57,7 @@ export class BasesButtonsSettingTab extends PluginSettingTab {
 			const nameDesc = document.createDocumentFragment();
 			nameDesc.append("Add ");
 			const nameCode = nameDesc.createEl("code", { text: `button.${shortName || "<name>"}` });
-			nameDesc.append(" as a property column in your Base view or as a property in note frontmatter.");
+			nameDesc.append(" as a property column in your Base view.");
 
 			const group = containerEl.createDiv({ cls: "bb-setting-group" });
 
@@ -89,15 +89,22 @@ export class BasesButtonsSettingTab extends PluginSettingTab {
 
 			new Setting(group)
 				.setName("Templater file")
-				.setDesc("Vault path to the Templater template file to run, for example Templates/Archive task.md.")
-				.addText(text => text
-					.setPlaceholder("Templates/Button action.md")
-					.setValue(button.templatePath)
-					.onChange(async (value) => {
-						button.templatePath = value.trim();
+				.setDesc("Start typing a template file path and choose a Markdown file from the suggestions.")
+				.addSearch(search => {
+					new TemplateFileSuggest(this.app, search.inputEl, async (file) => {
+						button.templatePath = file.path;
+						search.setValue(file.path);
 						await this.plugin.saveSettings();
-					})
-				);
+					});
+
+					search
+						.setPlaceholder("Templates/Button action.md")
+						.setValue(button.templatePath)
+						.onChange(async (value) => {
+							button.templatePath = value.trim();
+							await this.plugin.saveSettings();
+						});
+				});
 		});
 
 		new Setting(containerEl)
@@ -109,5 +116,43 @@ export class BasesButtonsSettingTab extends PluginSettingTab {
 					this.display();
 				})
 			);
+	}
+}
+
+class TemplateFileSuggest extends AbstractInputSuggest<TFile> {
+	private onChoose: (file: TFile) => void | Promise<void>;
+
+	constructor(app: App, inputEl: HTMLInputElement, onChoose: (file: TFile) => void | Promise<void>) {
+		super(app, inputEl);
+		this.onChoose = onChoose;
+		this.limit = 20;
+	}
+
+	protected getSuggestions(query: string): TFile[] {
+		const normalizedQuery = query.trim().toLowerCase();
+		const markdownFiles = this.app.vault.getMarkdownFiles();
+
+		if (!normalizedQuery) {
+			return markdownFiles
+				.filter(file => this.looksLikeTemplatePath(file.path))
+				.slice(0, 20);
+		}
+
+		return markdownFiles
+			.filter(file => file.path.toLowerCase().includes(normalizedQuery))
+			.slice(0, 20);
+	}
+
+	renderSuggestion(file: TFile, el: HTMLElement): void {
+		el.setText(file.path);
+	}
+
+	selectSuggestion(file: TFile): void {
+		void this.onChoose(file);
+		this.close();
+	}
+
+	private looksLikeTemplatePath(path: string): boolean {
+		return path.toLowerCase().includes("template");
 	}
 }
