@@ -40,7 +40,7 @@ export default class BasesButtonsPlugin extends Plugin {
 
 		this.app.workspace.onLayoutReady(() => {
 			this.startObserver();
-			this.injectButtons(document.body);
+			this.injectButtons(this.app.workspace.containerEl ?? document.body);
 		});
 	}
 
@@ -172,7 +172,7 @@ export default class BasesButtonsPlugin extends Plugin {
 	}
 
 	private startObserver() {
-		this.observer.observe(document.body, { childList: true, subtree: true });
+		this.observer.observe(this.app.workspace.containerEl ?? document.body, { childList: true, subtree: true });
 	}
 
 	private queueInject(root: HTMLElement | Document) {
