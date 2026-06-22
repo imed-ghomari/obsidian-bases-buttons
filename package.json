@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-bases-buttons",
-	"version": "1.2.5",
+	"version": "1.2.6",
 	"description": "Adds configurable Templater-powered buttons to Bases.",
 	"main": "main.js",
 	"type": "module",

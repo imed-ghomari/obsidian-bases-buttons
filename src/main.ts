@@ -53,7 +53,7 @@ export default class BasesButtonsPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		const loaded = await this.loadData() as Partial<BasesButtonsSettings>;
+		const loaded = (await this.loadData() ?? {}) as Partial<BasesButtonsSettings>;
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, loaded);
 
 		if (!Array.isArray(this.settings.buttons)) {
