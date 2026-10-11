@@ -46,7 +46,7 @@ export default class BasesButtonsPlugin extends Plugin {
 
 	onunload() {
 		if (this.injectTimer !== null) {
-			activeWindow.clearTimeout(this.injectTimer);
+			window.clearTimeout(this.injectTimer);
 			this.injectTimer = null;
 		}
 		this.observer?.disconnect();
@@ -114,8 +114,7 @@ export default class BasesButtonsPlugin extends Plugin {
 			const templaterRuntime = templaterPlugin?.templater;
 			const writeTemplate = templaterRuntime?.write_template_to_file;
 			if (typeof writeTemplate !== "function") {
-				// eslint-disable-next-line obsidianmd/ui/sentence-case -- Templater and Bases are proper nouns.
-				new Notice("Install and enable the Templater plugin to use Bases buttons.");
+				new Notice("Install and enable the templater plugin to use bases buttons.");
 				return;
 			}
 
@@ -179,7 +178,7 @@ export default class BasesButtonsPlugin extends Plugin {
 		this.pendingInjectionRoots.add(root);
 		if (this.injectTimer !== null) return;
 
-		this.injectTimer = activeWindow.setTimeout(() => {
+		this.injectTimer = window.setTimeout(() => {
 			this.injectTimer = null;
 			const roots = Array.from(this.pendingInjectionRoots);
 			this.pendingInjectionRoots.clear();
@@ -244,9 +243,7 @@ export default class BasesButtonsPlugin extends Plugin {
 	}
 
 	private createButton(config: ButtonConfig): HTMLButtonElement {
-		const buttonEl = activeDocument.createElement("button");
-		buttonEl.type = "button";
-		buttonEl.classList.add("bases-buttons-plugin-button", "clickable-icon");
+		const buttonEl = createEl("button", { type: "button", cls: ["bases-buttons-plugin-button", "clickable-icon"] });
 		this.updateButton(buttonEl, config);
 		return buttonEl;
 	}
@@ -462,7 +459,7 @@ class MobileRunConfirmationModal extends Modal {
 	waitForChoice(): Promise<boolean> {
 		return new Promise(resolve => {
 			this.resolveChoice = resolve;
-			this.openTimer = activeWindow.setTimeout(() => {
+			this.openTimer = window.setTimeout(() => {
 				this.openTimer = null;
 				this.open();
 			}, MOBILE_CONFIRMATION_OPEN_DELAY_MS);
@@ -493,7 +490,7 @@ class MobileRunConfirmationModal extends Modal {
 
 	onClose() {
 		if (this.openTimer !== null) {
-			activeWindow.clearTimeout(this.openTimer);
+			window.clearTimeout(this.openTimer);
 			this.openTimer = null;
 		}
 

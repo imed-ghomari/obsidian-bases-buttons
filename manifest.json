@@ -1,7 +1,7 @@
 {
 	"id": "bases-buttons",
 	"name": "Bases Buttons",
-	"version": "1.2.7",
+	"version": "1.2.8",
 	"minAppVersion": "1.13.0",
 	"description": "Adds configurable Templater-powered buttons to Bases.",
 	"author": "Imed Ghomari",
