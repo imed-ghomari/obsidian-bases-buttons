@@ -40,13 +40,13 @@ export default class BasesButtonsPlugin extends Plugin {
 
 		this.app.workspace.onLayoutReady(() => {
 			this.startObserver();
-			this.injectButtons(this.app.workspace.containerEl ?? document.body);
+			this.injectButtons(this.app.workspace.containerEl ?? activeDocument.body);
 		});
 	}
 
 	onunload() {
 		if (this.injectTimer !== null) {
-			window.clearTimeout(this.injectTimer);
+			activeWindow.clearTimeout(this.injectTimer);
 			this.injectTimer = null;
 		}
 		this.observer?.disconnect();
@@ -114,7 +114,8 @@ export default class BasesButtonsPlugin extends Plugin {
 			const templaterRuntime = templaterPlugin?.templater;
 			const writeTemplate = templaterRuntime?.write_template_to_file;
 			if (typeof writeTemplate !== "function") {
-				new Notice("Install and enable the Templater plugin to use Bases Buttons.");
+				// eslint-disable-next-line obsidianmd/ui/sentence-case -- Templater and Bases are proper nouns.
+				new Notice("Install and enable the Templater plugin to use Bases buttons.");
 				return;
 			}
 
@@ -143,15 +144,14 @@ export default class BasesButtonsPlugin extends Plugin {
 			const dataProperty = `note.${buttonConfig.name}`;
 			const cells = this.queryWithSelf<HTMLElement>(container, `.bases-td[data-property="${dataProperty}"]`);
 
-			cells.forEach(cellEl => {
-				const cell = cellEl as HTMLElement;
+			cells.forEach(cell => {
 				const existingButton = cell.querySelector<HTMLButtonElement>(".bases-buttons-plugin-button");
 				if (existingButton) {
 					this.updateButton(existingButton, buttonConfig);
 					return;
 				}
 
-				const row = cell.closest(".bases-tr") as HTMLElement;
+				const row = cell.closest<HTMLElement>(".bases-tr");
 				if (!row) return;
 
 				this.injectIntoBaseCell(cell, row, buttonConfig);
@@ -162,7 +162,7 @@ export default class BasesButtonsPlugin extends Plugin {
 	private handleMutations(mutations: MutationRecord[]) {
 		for (const mutation of mutations) {
 			if (mutation.type !== "childList" || mutation.addedNodes.length === 0) continue;
-			if (mutation.target instanceof HTMLElement && mutation.target.closest(".bases-buttons-plugin-button")) continue;
+			if (mutation.target.instanceOf(HTMLElement) && mutation.target.closest(".bases-buttons-plugin-button")) continue;
 
 			Array.from(mutation.addedNodes).forEach(node => {
 				const root = this.getInjectionRoot(node);
@@ -172,14 +172,14 @@ export default class BasesButtonsPlugin extends Plugin {
 	}
 
 	private startObserver() {
-		this.observer.observe(this.app.workspace.containerEl ?? document.body, { childList: true, subtree: true });
+		this.observer.observe(this.app.workspace.containerEl ?? activeDocument.body, { childList: true, subtree: true });
 	}
 
 	private queueInject(root: HTMLElement | Document) {
 		this.pendingInjectionRoots.add(root);
 		if (this.injectTimer !== null) return;
 
-		this.injectTimer = window.setTimeout(() => {
+		this.injectTimer = activeWindow.setTimeout(() => {
 			this.injectTimer = null;
 			const roots = Array.from(this.pendingInjectionRoots);
 			this.pendingInjectionRoots.clear();
@@ -190,7 +190,7 @@ export default class BasesButtonsPlugin extends Plugin {
 	private injectWithoutObserving(roots: Array<HTMLElement | Document>) {
 		this.observer.disconnect();
 		roots.forEach(root => {
-			if (root instanceof Document || root.isConnected) {
+			if (root.instanceOf(Document) || root.isConnected) {
 				this.injectButtons(root);
 			}
 		});
@@ -200,7 +200,7 @@ export default class BasesButtonsPlugin extends Plugin {
 	private getInjectionRoot(node: Node): HTMLElement | null {
 		if (this.isOwnButtonNode(node)) return null;
 
-		const el = node instanceof HTMLElement ? node : node.parentElement;
+		const el = node.instanceOf(HTMLElement) ? node : node.parentElement;
 		if (!el) return null;
 
 		const parentRoot = el.closest<HTMLElement>(".bases-td, .bases-view");
@@ -213,7 +213,7 @@ export default class BasesButtonsPlugin extends Plugin {
 	}
 
 	private isOwnButtonNode(node: Node): boolean {
-		if (node instanceof HTMLElement) {
+		if (node.instanceOf(HTMLElement)) {
 			return node.matches(".bases-buttons-plugin-button") || node.closest(".bases-buttons-plugin-button") !== null;
 		}
 
@@ -222,7 +222,7 @@ export default class BasesButtonsPlugin extends Plugin {
 
 	private queryWithSelf<T extends Element>(container: HTMLElement | Document, selector: string): T[] {
 		const matches = Array.from(container.querySelectorAll<T>(selector));
-		if (container instanceof HTMLElement && container.matches(selector)) {
+		if (container.instanceOf(HTMLElement) && container.matches(selector)) {
 			matches.unshift(container as unknown as T);
 		}
 		return matches;
@@ -244,7 +244,7 @@ export default class BasesButtonsPlugin extends Plugin {
 	}
 
 	private createButton(config: ButtonConfig): HTMLButtonElement {
-		const buttonEl = document.createElement("button");
+		const buttonEl = activeDocument.createElement("button");
 		buttonEl.type = "button";
 		buttonEl.classList.add("bases-buttons-plugin-button", "clickable-icon");
 		this.updateButton(buttonEl, config);
@@ -337,22 +337,22 @@ export default class BasesButtonsPlugin extends Plugin {
 			this.activateButton(button);
 		};
 
-		this.registerDomEvent(window, "pointerdown", stopButtonSelection, { capture: true });
-		this.registerDomEvent(document, "pointerdown", stopButtonSelection, { capture: true });
-		this.registerDomEvent(window, "mousedown", stopButtonSelection, { capture: true });
-		this.registerDomEvent(document, "mousedown", stopButtonSelection, { capture: true });
-		this.registerDomEvent(window, "touchstart", stopButtonSelection, { capture: true });
-		this.registerDomEvent(document, "touchstart", stopButtonSelection, { capture: true });
-		this.registerDomEvent(window, "dblclick", stopButtonSelection, { capture: true });
-		this.registerDomEvent(document, "dblclick", stopButtonSelection, { capture: true });
+		this.registerDomEvent(activeWindow, "pointerdown", stopButtonSelection, { capture: true });
+		this.registerDomEvent(activeDocument, "pointerdown", stopButtonSelection, { capture: true });
+		this.registerDomEvent(activeWindow, "mousedown", stopButtonSelection, { capture: true });
+		this.registerDomEvent(activeDocument, "mousedown", stopButtonSelection, { capture: true });
+		this.registerDomEvent(activeWindow, "touchstart", stopButtonSelection, { capture: true });
+		this.registerDomEvent(activeDocument, "touchstart", stopButtonSelection, { capture: true });
+		this.registerDomEvent(activeWindow, "dblclick", stopButtonSelection, { capture: true });
+		this.registerDomEvent(activeDocument, "dblclick", stopButtonSelection, { capture: true });
 
-		this.registerDomEvent(window, "pointerup", activateButton, { capture: true });
-		this.registerDomEvent(document, "pointerup", activateButton, { capture: true });
-		this.registerDomEvent(window, "click", activateButton, { capture: true });
-		this.registerDomEvent(document, "click", activateButton, { capture: true });
+		this.registerDomEvent(activeWindow, "pointerup", activateButton, { capture: true });
+		this.registerDomEvent(activeDocument, "pointerup", activateButton, { capture: true });
+		this.registerDomEvent(activeWindow, "click", activateButton, { capture: true });
+		this.registerDomEvent(activeDocument, "click", activateButton, { capture: true });
 
-		this.registerDomEvent(window, "keydown", (event) => this.handleKeyboardActivation(event), { capture: true });
-		this.registerDomEvent(document, "keydown", (event) => this.handleKeyboardActivation(event), { capture: true });
+		this.registerDomEvent(activeWindow, "keydown", (event) => this.handleKeyboardActivation(event), { capture: true });
+		this.registerDomEvent(activeDocument, "keydown", (event) => this.handleKeyboardActivation(event), { capture: true });
 	}
 
 	private handleKeyboardActivation(event: KeyboardEvent) {
@@ -367,16 +367,17 @@ export default class BasesButtonsPlugin extends Plugin {
 	}
 
 	private getEventButton(event: Event): HTMLButtonElement | null {
-		const target = event.target;
-		if (!(target instanceof HTMLElement)) return null;
+		const target = (event as UIEvent).targetNode;
+		if (!target?.instanceOf(HTMLElement)) return null;
 
 		const button = target.closest<HTMLButtonElement>(".bases-buttons-plugin-button");
 		return button && this.buttonTargets.has(button) ? button : null;
 	}
 
 	private getSelectedBaseButton(event: Event): HTMLButtonElement | null {
-		const target = event.target instanceof HTMLElement ? event.target : document.activeElement;
-		const root = target?.closest<HTMLElement>(".bases-view") ?? document;
+		const eventTarget = (event as UIEvent).targetNode;
+		const target = eventTarget?.instanceOf(HTMLElement) ? eventTarget : activeDocument.activeElement;
+		const root = target?.closest<HTMLElement>(".bases-view") ?? activeDocument;
 		const targetCell = target?.closest<HTMLElement>(".bases-td");
 		const selectedCell = targetCell?.querySelector(".bases-buttons-plugin-button")
 			? targetCell
@@ -461,7 +462,7 @@ class MobileRunConfirmationModal extends Modal {
 	waitForChoice(): Promise<boolean> {
 		return new Promise(resolve => {
 			this.resolveChoice = resolve;
-			this.openTimer = window.setTimeout(() => {
+			this.openTimer = activeWindow.setTimeout(() => {
 				this.openTimer = null;
 				this.open();
 			}, MOBILE_CONFIRMATION_OPEN_DELAY_MS);
@@ -492,7 +493,7 @@ class MobileRunConfirmationModal extends Modal {
 
 	onClose() {
 		if (this.openTimer !== null) {
-			window.clearTimeout(this.openTimer);
+			activeWindow.clearTimeout(this.openTimer);
 			this.openTimer = null;
 		}
 
@@ -503,8 +504,8 @@ class MobileRunConfirmationModal extends Modal {
 	}
 
 	private stopBackdropClose = (event: Event) => {
-		const target = event.target;
-		if (!(target instanceof Node) || this.modalEl.contains(target)) return;
+		const target = (event as UIEvent).targetNode;
+		if (!target?.instanceOf(Node) || this.modalEl.contains(target)) return;
 
 		event.preventDefault();
 		event.stopImmediatePropagation();

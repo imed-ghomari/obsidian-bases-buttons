@@ -1,4 +1,4 @@
-import { AbstractInputSuggest, App, PluginSettingTab, Setting, TFile } from "obsidian";
+import { AbstractInputSuggest, App, Modal, PluginSettingTab, Setting, SettingDefinitionItem, TFile } from "obsidian";
 import BasesButtonsPlugin from "./main";
 
 export interface ButtonConfig {
@@ -25,110 +25,151 @@ export class BasesButtonsSettingTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
-	display(): void {
-		const { containerEl } = this;
-		containerEl.empty();
+	getSettingDefinitions(): SettingDefinitionItem[] {
+		return [
+			{
+				name: "Buttons",
+				desc: "Define properties that display as buttons in Bases tables. Each button runs a Templater template against the note represented by that Base row. To use a button, add button.<name> as a property column in your Base view.",
+			},
+			{
+				name: "Confirm on mobile",
+				desc: "Ask for confirmation before running a button on mobile devices.",
+				control: {
+					type: "toggle",
+					key: "confirmMobileRuns",
+				},
+			},
+			{
+				type: "list",
+				heading: "Buttons",
+				emptyState: "No buttons yet. Add your first button to run Templater templates from Bases.",
+				addItem: {
+					name: "Add button",
+					action: () => this.openButtonModal(-1),
+				},
+				onDelete: (index: number) => {
+					this.plugin.settings.buttons.splice(index, 1);
+					void this.plugin.saveSettings().then(() => this.update());
+				},
+				onReorder: (oldIndex: number, newIndex: number) => {
+					const buttons = this.plugin.settings.buttons;
+					const [moved] = buttons.splice(oldIndex, 1);
+					if (moved) {
+						buttons.splice(newIndex, 0, moved);
+						void this.plugin.saveSettings().then(() => this.update());
+					}
+				},
+				items: this.plugin.settings.buttons.map((button) => {
+					const shortName = button.name.replace(/^button\./, "");
+					const displayName = button.label.trim() || shortName || "New button";
+					const templateSummary = button.templatePath || "No template selected";
+					return {
+						name: displayName,
+						desc: `${button.name || "button.<name>"} → ${templateSummary}`,
+						aliases: [button.name, shortName, button.label, button.templatePath].filter((s): s is string => Boolean(s)),
+						action: (liveIndex: number) => this.openButtonModal(liveIndex),
+					};
+				}),
+			},
+		];
+	}
 
-		const headingDesc = document.createDocumentFragment();
-		headingDesc.append(
-			"Define properties that display as buttons in Bases tables. Each button runs a Templater template against the note represented by that Base row. To use a button, add ",
-			headingDesc.createEl("code", { text: "button.<name>" }),
-			" as a property column in your Base view."
-		);
-		new Setting(containerEl)
-			.setName("Buttons")
-			.setDesc(headingDesc)
-			.setHeading();
+	private openButtonModal(index: number): void {
+		if (index < 0) {
+			this.plugin.settings.buttons.push({ name: "button.", label: "Run template", templatePath: "" });
+			const newIndex = this.plugin.settings.buttons.length - 1;
+			void this.plugin.saveSettings().then(() => {
+				this.update();
+				new ButtonEditModal(this.app, this.plugin, this, newIndex).open();
+			});
+			return;
+		}
+		new ButtonEditModal(this.app, this.plugin, this, index).open();
+	}
+}
 
-		new Setting(containerEl)
-			.setName("Confirm on mobile")
-			.setDesc("Ask for confirmation before running a button on mobile devices.")
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.confirmMobileRuns)
-				.onChange(async (value) => {
-					this.plugin.settings.confirmMobileRuns = value;
-					await this.plugin.saveSettings();
-				})
-			);
+class ButtonEditModal extends Modal {
+	private plugin: BasesButtonsPlugin;
+	private tab: BasesButtonsSettingTab;
+	private index: number;
 
-		this.plugin.settings.buttons.forEach((button, index) => {
-			const shortName = button.name.replace(/^button\./, "");
+	constructor(app: App, plugin: BasesButtonsPlugin, tab: BasesButtonsSettingTab, index: number) {
+		super(app);
+		this.plugin = plugin;
+		this.tab = tab;
+		this.index = index;
+	}
 
-			new Setting(containerEl)
-				.setName(button.label || shortName || "New button")
-				.setHeading()
-				.addExtraButton(btn => btn
-					.setIcon("trash")
-					.setTooltip("Delete this button")
-					.onClick(async () => {
-						this.plugin.settings.buttons.splice(index, 1);
-						await this.plugin.saveSettings();
-						this.display();
-					})
-				);
+	private get button(): ButtonConfig | undefined {
+		return this.plugin.settings.buttons[this.index];
+	}
 
-			const nameDesc = document.createDocumentFragment();
-			nameDesc.append("Add ");
-			const nameCode = nameDesc.createEl("code", { text: `button.${shortName || "<name>"}` });
-			nameDesc.append(" as a property column in your Base view.");
+	onOpen(): void {
+		const button = this.button;
+		if (!button) {
+			this.close();
+			return;
+		}
 
-			const group = containerEl.createDiv({ cls: "bb-setting-group" });
+		const shortName = button.name.replace(/^button\./, "");
+		this.titleEl.setText(button.label.trim() || shortName || "Edit button");
+		this.contentEl.empty();
 
-			new Setting(group)
-				.setName("Property name")
-				.setDesc(nameDesc)
-				.addText(text => text
-					.setPlaceholder("run")
+		new Setting(this.contentEl)
+			.setName("Property name")
+			.setDesc(`Add button.${shortName || "<name>"} as a property column in your Base view.`)
+			.addText((text) => {
+				text
+					.setPlaceholder("Run")
 					.setValue(shortName)
 					.onChange(async (value) => {
 						const normalized = value.replace(/^button\./, "").trim();
 						button.name = `button.${normalized}`;
-						nameCode.textContent = `button.${normalized || "<name>"}`;
 						await this.plugin.saveSettings();
-					})
-				);
+					});
+			});
 
-			new Setting(group)
-				.setName("Button label")
-				.setDesc("The text shown on the button.")
-				.addText(text => text
+		new Setting(this.contentEl)
+			.setName("Button label")
+			.setDesc("The text shown on the button.")
+			.addText((text) => {
+				text
 					.setPlaceholder("Run template")
 					.setValue(button.label)
 					.onChange(async (value) => {
 						button.label = value;
 						await this.plugin.saveSettings();
-					})
-				);
+					});
+			});
 
-			new Setting(group)
-				.setName("Templater file")
-				.setDesc("Start typing a template file path and choose a Markdown file from the suggestions.")
-				.addSearch(search => {
-					new TemplateFileSuggest(this.app, search.inputEl, async (file) => {
-						button.templatePath = file.path;
-						search.setValue(file.path);
+		new Setting(this.contentEl)
+			.setName("Templater file")
+			.setDesc("Start typing a template file path and choose a Markdown file from the suggestions.")
+			.addSearch((search) => {
+				new TemplateFileSuggest(this.app, search.inputEl, async (file) => {
+					button.templatePath = file.path;
+					search.setValue(file.path);
+					await this.plugin.saveSettings();
+				});
+
+				search
+					.setPlaceholder("Templates/Button action.md")
+					.setValue(button.templatePath)
+					.onChange(async (value) => {
+						button.templatePath = value.trim();
 						await this.plugin.saveSettings();
 					});
+			});
 
-					search
-						.setPlaceholder("Templates/Button action.md")
-						.setValue(button.templatePath)
-						.onChange(async (value) => {
-							button.templatePath = value.trim();
-							await this.plugin.saveSettings();
-						});
-				});
-		});
-
-		new Setting(containerEl)
-			.addButton(btn => btn
-				.setButtonText("Add button")
-				.onClick(async () => {
-					this.plugin.settings.buttons.push({ name: "button.", label: "Run template", templatePath: "" });
-					await this.plugin.saveSettings();
-					this.display();
-				})
+		new Setting(this.contentEl)
+			.addButton((btn) =>
+				btn.setButtonText("Done").setCta().onClick(() => this.close())
 			);
+	}
+
+	onClose(): void {
+		this.contentEl.empty();
+		this.tab.update();
 	}
 }
 

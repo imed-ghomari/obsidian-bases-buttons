@@ -24,7 +24,3 @@ data.json
 # Editor/tooling config
 .editorconfig
 .npmrc
-eslint.config.mts
-
-# Lock file
-package-lock.json
