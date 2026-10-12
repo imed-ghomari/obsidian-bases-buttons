@@ -1,5 +1,5 @@
 # Bases Buttons 1.2.6
 
-## Fixes
+## Fixed
 
-- Fixed plugin loading on fresh installs where no saved settings file exists yet.
+- Fixed the plugin not loading the first time you install it.

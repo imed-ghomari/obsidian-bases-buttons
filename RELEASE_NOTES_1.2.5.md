@@ -1,6 +1,5 @@
 # Bases Buttons 1.2.5
 
-## Fixes
+## Fixed
 
-- Restores the stable 1.2.4 plugin implementation after the abandoned review-fix attempt caused compatibility issues.
-- Keeps the 1.2.4 CSS fix for Bases buttons scrolling under sticky headers.
+- Fixed a faulty update. Buttons work as in 1.2.4, including scrolling under sticky headers.

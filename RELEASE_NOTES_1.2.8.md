@@ -1,7 +1,5 @@
 # Bases Buttons 1.2.8
 
-## Review fixes
+## Fixed
 
-- Reworded Templater notice to sentence case without disabling the `sentence-case` rule.
-- Reverted timer calls to `window.setTimeout()` / `window.clearTimeout()` per review guidance.
-- Replaced `document.createElement` with Obsidian `createEl()` helper for button creation.
+- Small reliability fixes. Buttons look and work the same as in 1.2.7.

@@ -1,6 +1,6 @@
 # Bases Buttons 1.2.4
 
-## Fixes & Improvements
+## Fixed
 
-- **UI Fix**: Buttons inside the Bases table now properly scroll under sticky column/row headers instead of floating over them.
-- **Performance**: Optimized the internal DOM mutation observer to only watch the Obsidian workspace, rather than the entire application window. This significantly reduces background CPU usage when typing or interacting with other parts of Obsidian.
+- Buttons now scroll underneath sticky headers instead of floating over them.
+- Reduced slowdowns when typing or working elsewhere in Obsidian.

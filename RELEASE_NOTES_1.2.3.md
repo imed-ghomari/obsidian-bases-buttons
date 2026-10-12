@@ -1,6 +1,6 @@
 # Bases Buttons 1.2.3
 
-## Fixes
+## Fixed
 
-- Fixed mobile confirmation dialogs closing immediately after a button tap.
-- Kept backdrop taps from dismissing the mobile run confirmation, so users must choose Cancel or Run.
+- Fixed the mobile confirmation closing right after tapping a button.
+- Tapping outside the confirmation no longer dismisses it. Choose Cancel or Run to continue.

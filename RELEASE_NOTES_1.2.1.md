@@ -1,12 +1,8 @@
 # Bases Buttons 1.2.1
 
-## Fixes
+## Fixed
 
-- Removed hover tooltip text from Bases buttons.
-- Matched button label sizing to the surrounding Bases cell text.
-- Added direct cell-level Enter handling so selected button cells run on the first Enter press.
-- Added stronger cell-level pointer guards so button presses do not also activate Bases cell selection.
-
-## Notes
-
-- Bases undo/redo integration is not included because the public plugin API does not expose the core Bases edit transaction stack, and button actions run arbitrary Templater scripts against files.
+- Removed the hover tooltip from buttons for a cleaner look.
+- Button text now matches the size of the surrounding table text.
+- Pressing Enter on a selected button cell runs it on the first press.
+- Tapping a button no longer activates the table cell underneath it.

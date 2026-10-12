@@ -1,12 +1,7 @@
 # Bases Buttons 1.2.7
 
-## Compliance fixes
+## What's new
 
-- Use `activeDocument` / `activeWindow` instead of `document` / `window` for pop-out window compatibility.
-- Use cross-window safe `.instanceOf(HTMLElement)` / `.instanceOf(Node)` / `UIEvent.targetNode` checks.
-- Removed unnecessary type assertion.
-- Migrated settings from deprecated `display()` to declarative `getSettingDefinitions()` so settings are searchable on Obsidian 1.13.0+. Bumped `minAppVersion` to 1.13.0.
-  - `Confirm on mobile` is now a bound toggle control.
-  - Buttons are now a searchable list with add / delete / reorder; each button opens an edit dialog for property name, label, and Templater file.
-- Added `package-lock.json` for reproducible builds (`npm ci` in release workflow).
-- Added GitHub artifact attestations (`attest-build-provenance`) for `main.js`, `manifest.json`, `styles.css`.
+- Buttons now work in pop-out windows.
+- Settings are now searchable from Obsidian's settings search. Requires Obsidian 1.13 or newer.
+- Settings have a new look: a mobile confirmation toggle plus a buttons list where you can add, delete, and reorder buttons. Selecting a button opens an editor for its property name, label, and template file.

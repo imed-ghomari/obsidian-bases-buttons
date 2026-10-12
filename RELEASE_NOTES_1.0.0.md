@@ -1,13 +1,7 @@
 # Bases Buttons 1.0.0
 
-## Changes
+## What's new
 
-- Replaced selector/dropdown behavior with configurable button properties.
-- Added button settings for property name, visible label, and Templater template file path.
-- Added Properties view and Bases table button rendering.
-- Runs Templater templates against the target note through Templater's file-writing API, including notes clicked from Base rows that are not currently open.
-- Renamed the plugin metadata to Bases Buttons.
-
-## Build
-
-- Built with `npm run build`.
+- Add your own buttons to Bases tables. For each button, choose a property name, the label you want to see, and the Templater template it should run.
+- Buttons appear right inside your Bases table.
+- Clicking a button runs its template on that row's note, even if the note isn't open.
